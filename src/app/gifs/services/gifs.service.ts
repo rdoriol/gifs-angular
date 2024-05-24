@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, OnInit } from '@angular/core';
 
 import { Gif, SearchResponse } from '../interfaces/gifs.interface';
 
@@ -10,32 +10,48 @@ import { Gif, SearchResponse } from '../interfaces/gifs.interface';
 export class GifsService {
 
   public gifList:Gif[] = [];
-
   private _tagsHistory: string[] = [];
+  private stringTagHistory: string = "";
   private apiKey: string = "BAZbljgdntUkEGLiB51WGM6CkppFpRAd";
   private serviceUrl: string = "https://api.giphy.com/v1/gifs";
 
-  constructor(private http:HttpClient) { }
+  constructor(private http:HttpClient) {
+    this.loadTagHistory();
+  }
 
-   get getTagsHistoryService() {
+  get getTagsHistoryService() {
     // return this._tagsHistory; // opción válida. Referencia a la propiedad _tagHistory
     return [...this._tagsHistory];    // Con los ... se realiza una copia exacta de la propiedad _tagHistory, evitando referencias y posibles modificaciones
   }
 
     // Método que almacena y ordena los valores introducidos en el campo de búsqueda
-  public sortTagHistoryService(tagActual:string):void {
+  private sortTagHistoryService(tagActual:string):void {
     tagActual = tagActual.toLowerCase();
 
-        // Si ya existe el tag introducido en campo búsqueda
-    if(this._tagsHistory.includes(tagActual)) {
-          // Se genera un nuevo array filtrando (eliminando o dejando fuera) el elemento antiguo coincidente
-      this._tagsHistory = this._tagsHistory.filter( (oldTag => oldTag !== tagActual) );
+    if(this._tagsHistory.includes(tagActual)) {   // Si ya existe el tag introducido en campo búsqueda
+      this._tagsHistory = this._tagsHistory.filter( (oldTag => oldTag !== tagActual) );   // Se genera un nuevo array filtrando (eliminando o dejando fuera) el elemento antiguo coincidente
     }
-      // El nuevo elemento se añade al principio del array
-    this._tagsHistory.unshift(tagActual);
 
-      // Se limita el array _tagsHistory a 10 elementos
-    this._tagsHistory = this._tagsHistory.splice(0, 10);
+    this._tagsHistory.unshift(tagActual);   // El nuevo elemento se añade al principio del array
+    this._tagsHistory = this._tagsHistory.splice(0, 50);    // Se limita el array _tagsHistory a 10 elementos
+
+    this.saveTagHistory();
+
+  }   // End sortTagHistoryService()
+
+    // Método que almacenará datos en localStorage
+  private saveTagHistory():void {
+    this.stringTagHistory = JSON.stringify(this._tagsHistory);
+    localStorage.setItem("tagHistory", this.stringTagHistory);
+  }
+
+    // Método para leer datos de localStorage
+  private loadTagHistory():void {
+    if(!localStorage.getItem("tagHistory")) return;
+      this._tagsHistory = JSON.parse(localStorage.getItem("tagHistory")!);
+
+    if(this._tagsHistory.length === 0) return;
+      this.searchTagService(this._tagsHistory[0]);
   }
 
     // Método que captura valor buscado en campo search y llama al método sortTagHistoryService
@@ -47,7 +63,7 @@ export class GifsService {
     const params = new HttpParams()
     .set("api_key", this.apiKey)
     .set("q", tag)
-    .set("limit", "10");
+    .set("limit", "50");
 
    this.http.get<SearchResponse>( `${ this.serviceUrl }/search`, { params: params })
         .subscribe( (resp) => {
